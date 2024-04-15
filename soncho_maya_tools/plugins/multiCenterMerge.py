@@ -49,14 +49,58 @@ class multiCenterMerge(om2.MPxCommand):
 
         return True
 
-    def grouping_comps():
-        pass
+    def get_dag_path_and_component(node_name):
+        selectionList = om2.MSelectionList()
+        selectionList.add(node_name)
+        dagPath, component = selectionList.getComponent(0)
+        return dagPath, component
 
-    def get_center():
-        pass
+    def group_components_by_adjacent_vertices(sel_iter):
+        groups = {}
 
-    def merge():
-        pass
+        while not sel_iter.isDone():
+            dagPath, component = sel_iter.getComponent()
+
+            if component.apiType() == om2.MFn.kMeshEdgeComponent:
+                edge_iter = om2.MItMeshEdge(dagPath)
+                while not edge_iter.isDone():
+                    if edge_iter.index() in component:
+                        vertices = [edge_iter.vertexId(0), edge_iter.vertexId(1)]
+                        for vertex_id in vertices:
+                            vertex_name = "{}.vtx[{}]".format(
+                                dagPath.fullPathName(), vertex_id
+                            )
+                            if vertex_name not in groups:
+                                groups[vertex_name] = []
+                            groups[vertex_name].append(
+                                "{}.e[{}]".format(
+                                    dagPath.fullPathName(), edge_iter.index()
+                                )
+                            )
+                    edge_iter.next()
+
+            elif component.apiType() == om2.MFn.kMeshPolygonComponent:
+                poly_iter = om2.MItMeshPolygon(dagPath)
+                while not poly_iter.isDone():
+                    if poly_iter.index() in component:
+                        vertices = poly_iter.getVertices()
+                        for vertex_id in vertices:
+                            vertex_name = "{}.vtx[{}]".format(
+                                dagPath.fullPathName(), vertex_id
+                            )
+                            if vertex_name not in groups:
+                                groups[vertex_name] = []
+                            groups[vertex_name].append(
+                                "{}.f[{}]".format(
+                                    dagPath.fullPathName(), poly_iter.index()
+                                )
+                            )
+                    poly_iter.next()
+
+            sel_iter.next()
+
+        return groups
+
 
 def cmdCreator():
     return multiCenterMerge()
