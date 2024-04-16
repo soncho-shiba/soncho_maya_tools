@@ -1,7 +1,9 @@
 import math
 import maya.api.OpenMaya as om2
+import maya.api.OpenMayaUI as omui
 import maya.cmds as cmds
 
+import itertools
 
 kPluginCmdName = "multiCenterMerge"
 
@@ -15,87 +17,94 @@ class multiCenterMerge(om2.MPxCommand):
     def __init__(self):
         om2.MPxCommand.__init__(self)
 
-
     def doIt(self, args):
-        self.sel = om2.MGlobal.getActiveSelectionList()
-        if not self.is_selection_valid(self.sel):
-            raise RuntimeError("please edges or faces")
+        self.selections = om2.MGlobal.getActiveSelectionList()
+        if not self.is_selection_valid(self.selections):
+            raise RuntimeError("Please select edges or faces")
 
-        print(kPluginCmdName + "done")
+        sel_iter = om2.MItSelectionList(self.selections, om2.MFn.kComponent)
+        vertex_group_dict = self.group_components_by_adjacent_vertices(sel_iter)
+        print(vertex_group_dict)
+        print(kPluginCmdName + "_done")
+        om2.MPxCommand.__init__(self)
 
-    def is_selection_valid(self,sel_list):
+    def get_dag_path_and_component(self, node_name):
+        selectionList = om2.MSelectionList()
+        selectionList.add(node_name)
+        dagPath, component = selectionList.getComponent(0)
+        return dagPath, component
+
+    def is_selection_valid(self, selections: om2.MSelectionList) -> bool:
         """現在の選択がエッジかフェースのみであるかをチェックします。
         無選択、全選択、頂点、オブジェクト選択時にはFalseを返します。
 
         Args:
-            sel_list (om2.MSelectionList): 現在の選択リスト
+            selections (om2.MSelectionList): 現在の選択リスト
 
         Returns:
             bool: 選択がエッジまたはフェースのみの場合はTrue、それ以外はFalse
         """
-        if sel_list.isEmpty():
+        if selections.isEmpty():
             return False
 
-        sel_iter = om2.MItSelectionList(sel_list, om2.MFn.kComponent)
+        sel_iter = om2.MItSelectionList(selections, om2.MFn.kComponent)
         while not sel_iter.isDone():
             _, component = sel_iter.getComponent()
             if component.isNull():
                 return False
 
             api_type = component.apiType()
-            if api_type not in (om2.MFn.kMeshEdgeComponent, om2.MFn.kMeshPolygonComponent):
+            if api_type not in (
+                om2.MFn.kMeshEdgeComponent,
+                om2.MFn.kMeshPolygonComponent,
+            ):
                 return False
             sel_iter.next()
 
         return True
 
-    def get_dag_path_and_component(node_name):
-        selectionList = om2.MSelectionList()
-        selectionList.add(node_name)
-        dagPath, component = selectionList.getComponent(0)
-        return dagPath, component
+    def format_edge_name(self, dagPath, edge_iter):
+        return "{}.e[{}]".format(dagPath.fullPathName(), int(edge_iter.index()))
 
-    def group_components_by_adjacent_vertices(sel_iter):
+    def group_components_by_adjacent_vertices(
+        self, sel_iter: om2.MItSelectionList
+    ) -> dict:
         groups = {}
 
         while not sel_iter.isDone():
             dagPath, component = sel_iter.getComponent()
 
             if component.apiType() == om2.MFn.kMeshEdgeComponent:
-                edge_iter = om2.MItMeshEdge(dagPath)
+                edge_iter = om2.MItMeshEdge(dagPath, component)
+
+                sel_vertex_indices = []
                 while not edge_iter.isDone():
-                    if edge_iter.index() in component:
-                        vertices = [edge_iter.vertexId(0), edge_iter.vertexId(1)]
-                        for vertex_id in vertices:
-                            vertex_name = "{}.vtx[{}]".format(
-                                dagPath.fullPathName(), vertex_id
-                            )
-                            if vertex_name not in groups:
-                                groups[vertex_name] = []
-                            groups[vertex_name].append(
-                                "{}.e[{}]".format(
-                                    dagPath.fullPathName(), edge_iter.index()
-                                )
-                            )
+                    sel_vertex_indices.append(edge_iter.vertexId(0))
+                    sel_vertex_indices.append(edge_iter.vertexId(1))
+                    edge_iter.next()
+                print(sel_vertex_indices)
+                
+                obj_edge_iter = om2.MItMeshEdge(dagPath)
+                while not edge_iter.isDone():
+
+                    edge_name = self.format_edge_name(dagpath, edge_iter)
+                    groups[edge_name].append(edge_iter.vertexId(0))
+                    groups[edge_name].append(edge_iter.vertexId(1))
+
+                    for i in edge_iter.getConnectedEdges():
+                        connected_edge = obj_edge_iter.setIndex(i)
+                        connected_edge_vertices = [
+                            connected_edge.vertexId(0),
+                            connected_edge.vertexId(1),
+                        ]
+                        for vertex_id in connected_edge_vertices:
+                            if vertex_id in sel_vertex_indices:
+                                groups[edge_name].append(edge_iter.index())
                     edge_iter.next()
 
             elif component.apiType() == om2.MFn.kMeshPolygonComponent:
                 poly_iter = om2.MItMeshPolygon(dagPath)
-                while not poly_iter.isDone():
-                    if poly_iter.index() in component:
-                        vertices = poly_iter.getVertices()
-                        for vertex_id in vertices:
-                            vertex_name = "{}.vtx[{}]".format(
-                                dagPath.fullPathName(), vertex_id
-                            )
-                            if vertex_name not in groups:
-                                groups[vertex_name] = []
-                            groups[vertex_name].append(
-                                "{}.f[{}]".format(
-                                    dagPath.fullPathName(), poly_iter.index()
-                                )
-                            )
-                    poly_iter.next()
+                pass
 
             sel_iter.next()
 
