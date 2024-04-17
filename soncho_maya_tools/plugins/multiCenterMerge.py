@@ -7,10 +7,8 @@ import itertools
 
 kPluginCmdName = "multiCenterMerge"
 
-
 def maya_useNewAPI():
     pass
-
 
 class multiCenterMerge(om2.MPxCommand):
 
@@ -18,13 +16,25 @@ class multiCenterMerge(om2.MPxCommand):
         om2.MPxCommand.__init__(self)
 
     def doIt(self, args):
-        self.selections = om2.MGlobal.getActiveSelectionList()
-        if not self.is_selection_valid(self.selections):
+        selection_list = om2.MGlobal.getActiveSelectionList()
+        if not self.is_selection_valid(selection_list):
             raise RuntimeError("Please select edges or faces")
 
-        sel_iter = om2.MItSelectionList(self.selections, om2.MFn.kComponent)
-        vertex_group_dict = self.group_components_by_adjacent_vertices(sel_iter)
-        print(vertex_group_dict)
+        vertex_groups = []
+        sel_iter = om2.MItSelectionList(selection_list, om2.MFn.kComponent)
+        while not sel_iter.isDone():
+            dagPath, component = sel_iter.getComponent()
+
+            if component.apiType() == om2.MFn.kMeshEdgeComponent:
+                vertex_groups = self.group_edges_and_convert_to_vertex_lists()
+
+            elif component.apiType() == om2.MFn.kMeshPolygonComponent:
+                pass
+                # vertex_groups = self.group_faces_and_convert_to_vertex_lists(selection_list)
+
+            sel_iter.next()
+        print("Vertex groups for merging:", vertex_groups)
+
         print(kPluginCmdName + "_done")
         om2.MPxCommand.__init__(self)
 
@@ -34,20 +44,20 @@ class multiCenterMerge(om2.MPxCommand):
         dagPath, component = selectionList.getComponent(0)
         return dagPath, component
 
-    def is_selection_valid(self, selections: om2.MSelectionList) -> bool:
+    def is_selection_valid(self, selection_list: om2.MSelectionList) -> bool:
         """現在の選択がエッジかフェースのみであるかをチェックします。
         無選択、全選択、頂点、オブジェクト選択時にはFalseを返します。
-
+        TODO:マルチ選択モードを対象外にする
         Args:
-            selections (om2.MSelectionList): 現在の選択リスト
+            selection_list (om2.MSelectionList): 現在の選択リスト
 
         Returns:
             bool: 選択がエッジまたはフェースのみの場合はTrue、それ以外はFalse
         """
-        if selections.isEmpty():
+        if selection_list.isEmpty():
             return False
 
-        sel_iter = om2.MItSelectionList(selections, om2.MFn.kComponent)
+        sel_iter = om2.MItSelectionList(selection_list, om2.MFn.kComponent)
         while not sel_iter.isDone():
             _, component = sel_iter.getComponent()
             if component.isNull():
@@ -63,52 +73,35 @@ class multiCenterMerge(om2.MPxCommand):
 
         return True
 
-    def format_edge_name(self, dagPath, edge_iter):
-        return "{}.e[{}]".format(dagPath.fullPathName(), int(edge_iter.index()))
+    def group_edges_and_convert_to_vertex_lists(self):
+        selection_list = om2.MGlobal.getActiveSelectionList()
+        edge_groups = {}
+        vertex_groups = []
 
-    def group_components_by_adjacent_vertices(
-        self, sel_iter: om2.MItSelectionList
-    ) -> dict:
-        groups = {}
+        for i in range(selection_list.length()):
+            dag_path, component = selection_list.getComponent(i)
+            if not component.isNull() and component.apiType() == om2.MFn.kMeshEdgeComponent:
+                edge_fn = om2.MFnSingleIndexedComponent(component)
+                edge_ids = edge_fn.getElements()
 
-        while not sel_iter.isDone():
-            dagPath, component = sel_iter.getComponent()
-
-            if component.apiType() == om2.MFn.kMeshEdgeComponent:
-                edge_iter = om2.MItMeshEdge(dagPath, component)
-
-                sel_vertex_indices = []
+                edge_iter = om2.MItMeshEdge(dag_path)
                 while not edge_iter.isDone():
-                    sel_vertex_indices.append(edge_iter.vertexId(0))
-                    sel_vertex_indices.append(edge_iter.vertexId(1))
-                    edge_iter.next()
-                print(sel_vertex_indices)
-                
-                obj_edge_iter = om2.MItMeshEdge(dagPath)
-                while not edge_iter.isDone():
-
-                    edge_name = self.format_edge_name(dagpath, edge_iter)
-                    groups[edge_name].append(edge_iter.vertexId(0))
-                    groups[edge_name].append(edge_iter.vertexId(1))
-
-                    for i in edge_iter.getConnectedEdges():
-                        connected_edge = obj_edge_iter.setIndex(i)
-                        connected_edge_vertices = [
-                            connected_edge.vertexId(0),
-                            connected_edge.vertexId(1),
-                        ]
-                        for vertex_id in connected_edge_vertices:
-                            if vertex_id in sel_vertex_indices:
-                                groups[edge_name].append(edge_iter.index())
+                    if edge_iter.index() in edge_ids:
+                        # MIntArrayをPythonのリストに変換
+                        connected_edges = list(edge_iter.getConnectedEdges())
+                        # Pythonのリスト同士を連結
+                        key = frozenset([edge_iter.index()] + connected_edges)
+                        if key not in edge_groups:
+                            edge_groups[key] = set()
+                        edge_groups[key].update([edge_iter.vertexId(0), edge_iter.vertexId(1)])
                     edge_iter.next()
 
-            elif component.apiType() == om2.MFn.kMeshPolygonComponent:
-                poly_iter = om2.MItMeshPolygon(dagPath)
-                pass
+        for vertices in edge_groups.values():
+            vertex_list = list(vertices)
+            if vertex_list not in vertex_groups:
+                vertex_groups.append(vertex_list)
 
-            sel_iter.next()
-
-        return groups
+        return vertex_groups
 
 
 def cmdCreator():
