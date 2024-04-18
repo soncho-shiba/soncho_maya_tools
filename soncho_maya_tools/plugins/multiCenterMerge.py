@@ -1,14 +1,15 @@
 import math
 import maya.api.OpenMaya as om2
-import maya.api.OpenMayaUI as omui
 import maya.cmds as cmds
-
+from collections import deque
 import itertools
 
 kPluginCmdName = "multiCenterMerge"
 
+
 def maya_useNewAPI():
     pass
+
 
 class multiCenterMerge(om2.MPxCommand):
 
@@ -20,20 +21,25 @@ class multiCenterMerge(om2.MPxCommand):
         if not self.is_selection_valid(selection_list):
             raise RuntimeError("Please select edges or faces")
 
-        vertex_groups = []
+        # TODO:dagpathをkeyに取るdictにして、オブジェクト単位でmerge関数にvertex_idsを渡す
+        vertex_ids = []
+
         sel_iter = om2.MItSelectionList(selection_list, om2.MFn.kComponent)
         while not sel_iter.isDone():
-            dagPath, component = sel_iter.getComponent()
+            dag_path, component = sel_iter.getComponent()
 
             if component.apiType() == om2.MFn.kMeshEdgeComponent:
-                vertex_groups = self.group_edges_and_convert_to_vertex_lists()
+                edge_iter = om2.MItMeshEdge(dag_path, component)
+                vertex_ids.append(self.convert_edges_to_vertex_ids(edge_iter))
 
             elif component.apiType() == om2.MFn.kMeshPolygonComponent:
-                pass
-                # vertex_groups = self.group_faces_and_convert_to_vertex_lists(selection_list)
+                poly_iter = om2.MItMeshEdge(dag_path, component)
+                vertex_ids.append(self.convert_faces_to_vertex_ids(poly_iter))
 
             sel_iter.next()
-        print("Vertex groups for merging:", vertex_groups)
+
+        adjacent_vertex_id_groups = self.group_adjacent_verities(vertex_ids)
+        self.merge_verities(adjacent_vertex_id_groups)
 
         print(kPluginCmdName + "_done")
         om2.MPxCommand.__init__(self)
@@ -45,14 +51,16 @@ class multiCenterMerge(om2.MPxCommand):
         return dagPath, component
 
     def is_selection_valid(self, selection_list: om2.MSelectionList) -> bool:
-        """現在の選択がエッジかフェースのみであるかをチェックします。
-        無選択、全選択、頂点、オブジェクト選択時にはFalseを返します。
-        TODO:マルチ選択モードを対象外にする
+        """
+        現在の選択がエッジまたはフェースのみを含んでいるかどうかをチェックする
+        選択が空である、完全に選択されている、頂点を含んでいる、もしくはオブジェクトの選択を含んでいる場合はFalseを返す
+        TODO: マルチ選択モードを除外するか決める
+
         Args:
             selection_list (om2.MSelectionList): 現在の選択リスト
 
         Returns:
-            bool: 選択がエッジまたはフェースのみの場合はTrue、それ以外はFalse
+            bool: 選択がエッジまたはフェースのみを含んでいる場合はTrue、それ以外の場合はFalse
         """
         if selection_list.isEmpty():
             return False
@@ -64,44 +72,84 @@ class multiCenterMerge(om2.MPxCommand):
                 return False
 
             api_type = component.apiType()
-            if api_type not in (
-                om2.MFn.kMeshEdgeComponent,
-                om2.MFn.kMeshPolygonComponent,
-            ):
+            if api_type not in (om2.MFn.kMeshEdgeComponent, om2.MFn.kMeshPolygonComponent):
                 return False
             sel_iter.next()
 
         return True
 
-    def group_edges_and_convert_to_vertex_lists(self):
-        selection_list = om2.MGlobal.getActiveSelectionList()
-        edge_groups = {}
-        vertex_groups = []
+    def convert_edges_to_vertex_ids(self, edge_iter: om2.MItMeshEdge) -> list:
+        """
+        Example:
+            output: [[0, 1], [1, 2], [2, 3], [3, 0], ...]
+        """
+        vertex_id_groups = []
+        while not edge_iter.isDone():
+            vertex_ids = [edge_iter.vertexId(0), edge_iter.vertexId(1)]
+            vertex_id_groups.append(vertex_ids)
+            edge_iter.next()
 
-        for i in range(selection_list.length()):
-            dag_path, component = selection_list.getComponent(i)
-            if not component.isNull() and component.apiType() == om2.MFn.kMeshEdgeComponent:
-                edge_fn = om2.MFnSingleIndexedComponent(component)
-                edge_ids = edge_fn.getElements()
+        return vertex_id_groups
 
-                edge_iter = om2.MItMeshEdge(dag_path)
-                while not edge_iter.isDone():
-                    if edge_iter.index() in edge_ids:
-                        # MIntArrayをPythonのリストに変換
-                        connected_edges = list(edge_iter.getConnectedEdges())
-                        # Pythonのリスト同士を連結
-                        key = frozenset([edge_iter.index()] + connected_edges)
-                        if key not in edge_groups:
-                            edge_groups[key] = set()
-                        edge_groups[key].update([edge_iter.vertexId(0), edge_iter.vertexId(1)])
-                    edge_iter.next()
+    def convert_faces_to_vertex_ids(self, poly_iter: om2.MItMeshPolygon) -> list:
+        """
+        Example:
+            output: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], ...]
+        """
+        vertex_id_groups = []
+        while not poly_iter.isDone():
+            vertex_ids = poly_iter.getVertices()
+            vertex_id_groups.append(vertex_ids)
+            poly_iter.next()
 
-        for vertices in edge_groups.values():
-            vertex_list = list(vertices)
-            if vertex_list not in vertex_groups:
-                vertex_groups.append(vertex_list)
+        return vertex_id_groups
 
-        return vertex_groups
+    def group_adjacent__vertex_ids(self, vertex_index_groups):
+        """
+        Use Union-Find Algorithm
+
+        Example:
+            input -> [[1,2], [2,3], [4,5], [6,7,8], [9,10], [9,12], [12,13]]
+            output -> [[1,2,3], [4,5], [6,7,8], [9,10,12,13]]
+        """
+        parent = {}
+
+        def find(vertex):
+            if parent[vertex] != vertex:
+                parent[vertex] = find(parent[vertex])
+            return parent[vertex]
+
+        def union(vertex1, vertex2):
+            root1 = find(vertex1)
+            root2 = find(vertex2)
+            if root1 != root2:
+                parent[root2] = root1
+
+        # 各頂点の初期親を自身に設定
+        for group in vertex_index_groups:
+            for vertex in group:
+                if vertex not in parent:
+                    parent[vertex] = vertex
+
+        # 各頂点グループ内の頂点を同じグループにマージ
+        for group in vertex_index_groups:
+            first_vertex = group[0]
+            for vertex in group[1:]:
+                union(first_vertex, vertex)
+
+        # マージされたグループを辞書で収集
+        merged_groups = {}
+        for vertex in parent:
+            root = find(vertex)
+            if root not in merged_groups:
+                merged_groups[root] = []
+            merged_groups[root].append(vertex)
+
+        # 辞書から頂点グループのリストを抽出して各グループをソート
+        return [sorted(group) for group in merged_groups.values()]
+
+    def merge_verities(self):
+        pass
 
 
 def cmdCreator():
