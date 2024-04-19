@@ -19,10 +19,10 @@ class multiCenterMerge(om2.MPxCommand):
     def doIt(self, args):
         selection_list = om2.MGlobal.getActiveSelectionList()
         if not self.is_selection_valid(selection_list):
-            raise RuntimeError("Please select edges or faces")
+            print("Please select edges or faces")
+            return
 
-        # TODO:dagpathをkeyに取るdictにして、オブジェクト単位でmerge関数にvertex_idsを渡す
-        vertex_ids = []
+        merge_vertex_groups = {}
 
         sel_iter = om2.MItSelectionList(selection_list, om2.MFn.kComponent)
         while not sel_iter.isDone():
@@ -30,16 +30,19 @@ class multiCenterMerge(om2.MPxCommand):
 
             if component.apiType() == om2.MFn.kMeshEdgeComponent:
                 edge_iter = om2.MItMeshEdge(dag_path, component)
-                vertex_ids.append(self.convert_edges_to_vertex_ids(edge_iter))
+                merge_vertex_groups[dag_path.__str__()] = self.convert_edges_to_merge_vertex_groups(edge_iter)
 
             elif component.apiType() == om2.MFn.kMeshPolygonComponent:
                 poly_iter = om2.MItMeshEdge(dag_path, component)
-                vertex_ids.append(self.convert_faces_to_vertex_ids(poly_iter))
+                merge_vertex_groups[dag_path.__str__()] = self.convert_faces_to_merge_vertex_groups(poly_iter)
 
             sel_iter.next()
 
-        adjacent_vertex_id_groups = self.group_adjacent_verities(vertex_ids)
-        self.merge_verities(adjacent_vertex_id_groups)
+        print("merge_vertex_groups:{}".format(merge_vertex_groups))
+        # TODO:group_adjacent_merge_vertex_groups関数の引数をlistではなくdictを受け取るように変更
+        # adjacent_vertex_id_groups = self.group_adjacent_merge_vertex_groups(merge_vertex_groups.values())
+        # print("adjacent_vertex_id_groups{}".format(adjacent_vertex_id_groups))
+        self.merge_verities(merge_vertex_groups)
 
         print(kPluginCmdName + "_done")
         om2.MPxCommand.__init__(self)
@@ -78,33 +81,33 @@ class multiCenterMerge(om2.MPxCommand):
 
         return True
 
-    def convert_edges_to_vertex_ids(self, edge_iter: om2.MItMeshEdge) -> list:
+    def convert_edges_to_merge_vertex_groups(self, edge_iter: om2.MItMeshEdge) -> list[list[int]]:
         """
         Example:
             output: [[0, 1], [1, 2], [2, 3], [3, 0], ...]
         """
         vertex_id_groups = []
         while not edge_iter.isDone():
-            vertex_ids = [edge_iter.vertexId(0), edge_iter.vertexId(1)]
-            vertex_id_groups.append(vertex_ids)
+            merge_vertex_groups = [edge_iter.vertexId(0), edge_iter.vertexId(1)]
+            vertex_id_groups.append(merge_vertex_groups)
             edge_iter.next()
 
         return vertex_id_groups
 
-    def convert_faces_to_vertex_ids(self, poly_iter: om2.MItMeshPolygon) -> list:
+    def convert_faces_to_merge_vertex_groups(self, poly_iter: om2.MItMeshPolygon) -> list[list[int]]:
         """
         Example:
             output: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], ...]
         """
         vertex_id_groups = []
         while not poly_iter.isDone():
-            vertex_ids = poly_iter.getVertices()
-            vertex_id_groups.append(vertex_ids)
+            merge_vertex_groups = poly_iter.getVertices()
+            vertex_id_groups.append(merge_vertex_groups)
             poly_iter.next()
 
         return vertex_id_groups
 
-    def group_adjacent__vertex_ids(self, vertex_index_groups):
+    def group_adjacent_merge_vertex_groups(self, vertex_index_groups) -> list:
         """
         Use Union-Find Algorithm
 
@@ -148,8 +151,15 @@ class multiCenterMerge(om2.MPxCommand):
         # 辞書から頂点グループのリストを抽出して各グループをソート
         return [sorted(group) for group in merged_groups.values()]
 
-    def merge_verities(self):
-        pass
+    def merge_verities(self, adjacent_vertex_id_groups):
+        for obj_path in adjacent_vertex_id_groups.keys():
+            vertex_id_groups = adjacent_vertex_id_groups[obj_path]
+            for vertex_ids in vertex_id_groups:
+                # TODO:cmds.select(clear=True)
+                for vertex_id in vertex_ids:
+                    vertex = "{}.vtx[{}]".format(obj_path, vertex_id)
+                    cmds.select(vertex, add=True)
+                    # TODO:center merge
 
 
 def cmdCreator():
