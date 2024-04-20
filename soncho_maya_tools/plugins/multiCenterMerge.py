@@ -33,7 +33,7 @@ class multiCenterMerge(om2.MPxCommand):
                 merge_vertex_groups[dag_path.__str__()] = self.convert_edges_to_merge_vertex_groups(edge_iter)
 
             elif component.apiType() == om2.MFn.kMeshPolygonComponent:
-                poly_iter = om2.MItMeshEdge(dag_path, component)
+                poly_iter = om2.MItMeshPolygon(dag_path, component)
                 merge_vertex_groups[dag_path.__str__()] = self.convert_faces_to_merge_vertex_groups(poly_iter)
 
             sel_iter.next()
