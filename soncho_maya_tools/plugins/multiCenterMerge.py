@@ -153,12 +153,14 @@ class multiCenterMerge(om2.MPxCommand):
         return [sorted(group) for group in merged_groups.values()]
 
     def merge_verities(self, adjacent_vertex_id_groups):
-        for obj_path in adjacent_vertex_id_groups.keys():
-            vertex_id_groups = adjacent_vertex_id_groups[obj_path]
+        cmds.select(clear=True)
+        cmds.selectType(vertex=True)
+
+        for dag_path in adjacent_vertex_id_groups.keys():
+            vertex_id_groups = adjacent_vertex_id_groups[dag_path]
             for vertex_ids in vertex_id_groups:
-                # TODO:cmds.select(clear=True)
                 for vertex_id in vertex_ids:
-                    vertex = "{}.vtx[{}]".format(obj_path, vertex_id)
+                    vertex = "{}.vtx[{}]".format(dag_path, vertex_id)
                     cmds.select(vertex, add=True)
                     # TODO:center merge
 
