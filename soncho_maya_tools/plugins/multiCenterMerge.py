@@ -39,10 +39,11 @@ class multiCenterMerge(om2.MPxCommand):
             sel_iter.next()
 
         print("merge_vertex_groups:{}".format(merge_vertex_groups))
-        # TODO:group_adjacent_merge_vertex_groups関数の引数をlistではなくdictを受け取るように変更
-        # adjacent_vertex_id_groups = self.group_adjacent_merge_vertex_groups(merge_vertex_groups.values())
-        # print("adjacent_vertex_id_groups{}".format(adjacent_vertex_id_groups))
-        self.merge_verities(merge_vertex_groups)
+        adjacent_vertex_id_groups = {}
+        for key, value in merge_vertex_groups.items():
+            adjacent_vertex_id_groups[key] = self.group_adjacent_merge_vertex_groups(value)
+        print("adjacent_vertex_id_groups : {}".format(adjacent_vertex_id_groups))
+        self.merge_verities(adjacent_vertex_id_groups)
 
         print(kPluginCmdName + "_done")
         om2.MPxCommand.__init__(self)
