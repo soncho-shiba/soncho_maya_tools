@@ -1,6 +1,7 @@
 import math
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
+import maya.mel as mel
 from collections import deque
 import itertools
 
@@ -17,6 +18,7 @@ class multiCenterMerge(om2.MPxCommand):
         om2.MPxCommand.__init__(self)
 
     def doIt(self, args):
+        # TODO:UNDO処理を書く
         selection_list = om2.MGlobal.getActiveSelectionList()
         if not self.is_selection_valid(selection_list):
             print("Please select edges or faces")
@@ -38,7 +40,6 @@ class multiCenterMerge(om2.MPxCommand):
 
             sel_iter.next()
 
-        print("merge_vertex_groups:{}".format(merge_vertex_groups))
         adjacent_vertex_id_groups = {}
         for key, value in merge_vertex_groups.items():
             adjacent_vertex_id_groups[key] = self.group_adjacent_merge_vertex_groups(value)
@@ -153,16 +154,17 @@ class multiCenterMerge(om2.MPxCommand):
         return [sorted(group) for group in merged_groups.values()]
 
     def merge_verities(self, adjacent_vertex_id_groups):
-        cmds.select(clear=True)
         cmds.selectType(vertex=True)
 
         for dag_path in adjacent_vertex_id_groups.keys():
             vertex_id_groups = adjacent_vertex_id_groups[dag_path]
             for vertex_ids in vertex_id_groups:
+                cmds.select(clear=True)
                 for vertex_id in vertex_ids:
                     vertex = "{}.vtx[{}]".format(dag_path, vertex_id)
                     cmds.select(vertex, add=True)
-                    # TODO:center merge
+                # TODO:速度を確認して、必要に応じてpolyMergeToCenterのメソッドを確認しつつ、ＡＰＩ2.0を使用する形に書き換える
+                mel.eval("polyMergeToCenter")
 
 
 def cmdCreator():
