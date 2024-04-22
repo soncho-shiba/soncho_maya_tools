@@ -9,6 +9,10 @@ kPluginCmdName = "multiCenterMerge"
 
 
 def maya_useNewAPI():
+    """
+    The presence of this function tells Maya that the plugin produces, and
+    expects to be passed, objects created using the Maya Python API 2.0.
+    """
     pass
 
 
@@ -153,6 +157,47 @@ class multiCenterMerge(om2.MPxCommand):
         # 辞書から頂点グループのリストを抽出して各グループをソート
         return [sorted(group) for group in merged_groups.values()]
 
+    def create_vertex_name_list(self, dag_path, vertex_ids):
+        vertex_names = ["{}.vtx[{}]".format(dag_path.__str__(), int(vertex_id)) for vertex_id in vertex_ids]
+        return vertex_names
+
+    def get_vertex_group_center(self, vertex_ids):
+        selection_list = om2.MSelectionList()
+        for vertex_id in vertex_ids:
+            selection_list.add(vertex_id)
+
+        point_array = om2.MPointArray()
+        for i in range(selection_list.length()):
+            dag_path, component = selection_list.getComponent()
+            iter = om2.MItMeshVertex(dag_path, component)
+            while not iter.isDone():
+                point_array.append(iter.position(om2.MSpace.kWorld))
+                iter.next()
+
+        center = om2.MPoint()
+        for point in point_array:
+            center += point
+        center /= point_array.length()
+
+        return [center.x, center.y, center.z]
+
+    def merge_vertices_by_om2(self, adjacent_vertex_id_groups):
+        cmds.selectType(vertex=True)
+
+        for dag_path in adjacent_vertex_id_groups.keys():
+            vertex_id_groups = adjacent_vertex_id_groups[dag_path]
+            for vertex_ids in vertex_id_groups:
+                cmds.select(clear=True)
+                center = self.get_vertex_group_center(vertex_ids)
+                vertex_names = self.create_vertex_name_list(dag_path, vertex_ids)
+                if vertex_names:
+                    om2.MGlobal.executeCommand(
+                        f"move -a {center[0]} {center[1]} {center[2]} {' '.join(vertex_names)}"
+                    )
+                    om2.MGlobal.executeCommand(
+                        "polyMergeVertex -d 0.000001 -ch true"
+                    )  # TODO:melを使用する方法と計算速度の比較をする
+
     def merge_verities(self, adjacent_vertex_id_groups):
         cmds.selectType(vertex=True)
 
@@ -160,11 +205,11 @@ class multiCenterMerge(om2.MPxCommand):
             vertex_id_groups = adjacent_vertex_id_groups[dag_path]
             for vertex_ids in vertex_id_groups:
                 cmds.select(clear=True)
-                for vertex_id in vertex_ids:
-                    vertex = "{}.vtx[{}]".format(dag_path, vertex_id)
-                    cmds.select(vertex, add=True)
-                # TODO:速度を確認して、必要に応じてpolyMergeToCenterのメソッドを確認しつつ、ＡＰＩ2.0を使用する形に書き換える
-                mel.eval("polyMergeToCenter")
+                vertex_names = self.create_vertex_name_list(dag_path, vertex_ids)
+                if vertex_names:
+                    for vertex_name in vertex_names:
+                        cmds.select(vertex_name, add=True)
+                    mel.eval("polyMergeToCenter")  # TODO:ＡＰＩ2.0を使用する方法と計算速度の比較をする
 
 
 def cmdCreator():
