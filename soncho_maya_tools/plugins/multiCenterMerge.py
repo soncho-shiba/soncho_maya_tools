@@ -56,7 +56,7 @@ class multiCenterMerge(om2.MPxCommand):
         for key, value in merge_vertex_groups.items():
             adjacent_vertex_id_groups[key] = self.group_adjacent_merge_vertex_groups(value)
         print("adjacent_vertex_id_groups : {}".format(adjacent_vertex_id_groups))
-        self.merge_verities(adjacent_vertex_id_groups)
+        self.merge_vertices(adjacent_vertex_id_groups)
 
         print(kPluginCmdName + "_done")
         om2.MPxCommand.__init__(self)
@@ -206,7 +206,8 @@ class multiCenterMerge(om2.MPxCommand):
                         "polyMergeVertex -d 0.000001 -ch true"
                     )  # TODO:melを使用する方法と計算速度の比較をする
 
-    def merge_verities(self, adjacent_vertex_id_groups):
+    def merge_vertices(self, adjacent_vertex_id_groups):
+        #TODO: グループごとに順番にマージすると頂点番号がかわってしまう　→　頂点番号を維持する方法、もしくはIDではなく位置ベースにする、もしくは
         cmds.selectType(vertex=True)
 
         for dag_path in adjacent_vertex_id_groups.keys():
@@ -214,9 +215,9 @@ class multiCenterMerge(om2.MPxCommand):
             for vertex_ids in vertex_id_groups:
                 cmds.select(clear=True)
                 vertex_names = self.create_vertex_name_list(dag_path, vertex_ids)
+                print(vertex_names)
                 if vertex_names:
-                    for vertex_name in vertex_names:
-                        cmds.select(vertex_name, add=True)
+                    cmds.select(vertex_names, replace=True)
                     mel.eval("polyMergeToCenter")  # TODO:ＡＰＩ2.0を使用する方法と計算速度の比較をする
 
 
