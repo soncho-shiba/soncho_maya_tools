@@ -33,14 +33,22 @@ class multiCenterMerge(om2.MPxCommand):
         sel_iter = om2.MItSelectionList(selection_list, om2.MFn.kComponent)
         while not sel_iter.isDone():
             dag_path, component = sel_iter.getComponent()
-
+            dag_path_str = dag_path.__str__()
+            vertex_group = []
             if component.apiType() == om2.MFn.kMeshEdgeComponent:
                 edge_iter = om2.MItMeshEdge(dag_path, component)
-                merge_vertex_groups[dag_path.__str__()] = self.convert_edges_to_merge_vertex_groups(edge_iter)
+                vertex_groups = self.convert_edges_to_merge_vertex_groups(edge_iter)
 
             elif component.apiType() == om2.MFn.kMeshPolygonComponent:
                 poly_iter = om2.MItMeshPolygon(dag_path, component)
-                merge_vertex_groups[dag_path.__str__()] = self.convert_faces_to_merge_vertex_groups(poly_iter)
+                vertex_groups = self.convert_faces_to_merge_vertex_groups(poly_iter)
+
+            if dag_path_str in merge_vertex_groups.keys():
+                for vertex_group in vertex_groups:
+                    if not vertex_group in merge_vertex_groups[dag_path_str]:
+                        merge_vertex_groups[dag_path_str].append(vertex_group)
+            else:
+                merge_vertex_groups[dag_path_str] = vertex_groups
 
             sel_iter.next()
 
