@@ -1,7 +1,7 @@
 import math
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-import maya.mel as mel
+
 from collections import deque
 import itertools
 
@@ -189,11 +189,11 @@ class multiCenterMerge(om2.MPxCommand):
 
         return [center.x, center.y, center.z]
 
-    def merge_vertices_by_om2(self, adjacent_vertex_id_groups):
         cmds.selectType(vertex=True)
 
         for dag_path in adjacent_vertex_id_groups.keys():
             vertex_id_groups = adjacent_vertex_id_groups[dag_path]
+    def merge_vertices(self, adjacent_vertex_id_groups):
             for vertex_ids in vertex_id_groups:
                 cmds.select(clear=True)
                 center = self.get_vertex_group_center(vertex_ids)
@@ -206,19 +206,7 @@ class multiCenterMerge(om2.MPxCommand):
                         "polyMergeVertex -d 0.000001 -ch true"
                     )  # TODO:melを使用する方法と計算速度の比較をする
 
-    def merge_vertices(self, adjacent_vertex_id_groups):
-        #TODO: グループごとに順番にマージすると頂点番号がかわってしまう　→　頂点番号を維持する方法、もしくはIDではなく位置ベースにする、もしくは
         cmds.selectType(vertex=True)
-
-        for dag_path in adjacent_vertex_id_groups.keys():
-            vertex_id_groups = adjacent_vertex_id_groups[dag_path]
-            for vertex_ids in vertex_id_groups:
-                cmds.select(clear=True)
-                vertex_names = self.create_vertex_name_list(dag_path, vertex_ids)
-                print(vertex_names)
-                if vertex_names:
-                    cmds.select(vertex_names, replace=True)
-                    mel.eval("polyMergeToCenter")  # TODO:ＡＰＩ2.0を使用する方法と計算速度の比較をする
 
 
 def cmdCreator():
