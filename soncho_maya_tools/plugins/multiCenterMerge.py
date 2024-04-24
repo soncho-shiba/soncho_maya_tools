@@ -1,7 +1,7 @@
 import math
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
-
+import maya.mel as mel
 from collections import deque
 import itertools
 
@@ -61,7 +61,7 @@ class multiCenterMerge(om2.MPxCommand):
         print(kPluginCmdName + "_done")
         om2.MPxCommand.__init__(self)
 
-    def get_dag_path_and_component(self, node_name):
+    def get_day_path_and_component(self, node_name):
         selectionList = om2.MSelectionList()
         selectionList.add(node_name)
         dagPath, component = selectionList.getComponent(0)
@@ -169,45 +169,44 @@ class multiCenterMerge(om2.MPxCommand):
         vertex_names = ["{}.vtx[{}]".format(dag_path.__str__(), int(vertex_id)) for vertex_id in vertex_ids]
         return vertex_names
 
-    def get_vertex_group_center(self, vertex_ids):
+    def get_vertex_group_center(self, dag_path, vertex_ids) -> om2.MPoint:
+        # TODO : iterの生成処理のためにMDagObjectとstringを行き来している処理の見直し
         selection_list = om2.MSelectionList()
-        for vertex_id in vertex_ids:
-            selection_list.add(vertex_id)
+        selection_list.add(dag_path)
+        m_dag_path = selection_list.getDagPath(0)
+
+        comp = om2.MObject()
+        _iter = om2.MItMeshVertex(m_dag_path, comp)
 
         point_array = om2.MPointArray()
-        for i in range(selection_list.length()):
-            dag_path, component = selection_list.getComponent()
-            iter = om2.MItMeshVertex(dag_path, component)
-            while not iter.isDone():
-                point_array.append(iter.position(om2.MSpace.kWorld))
-                iter.next()
+        for _id in vertex_ids:
+            point_array.append(_iter.position(om2.MSpace.kWorld))
+            _iter.setIndex(_id)
 
+        # TODO: center の計算をちゃんとする
         center = om2.MPoint()
         for point in point_array:
             center += point
-        center /= point_array.length()
+        center /= len(vertex_ids)
 
-        return [center.x, center.y, center.z]
 
-        cmds.selectType(vertex=True)
+        return center
 
-        for dag_path in adjacent_vertex_id_groups.keys():
-            vertex_id_groups = adjacent_vertex_id_groups[dag_path]
     def merge_vertices(self, adjacent_vertex_id_groups):
+        target_vertex_name_list = []
+        for day_path in adjacent_vertex_id_groups.keys():
+            vertex_id_groups = adjacent_vertex_id_groups[day_path]
             for vertex_ids in vertex_id_groups:
-                cmds.select(clear=True)
-                center = self.get_vertex_group_center(vertex_ids)
-                vertex_names = self.create_vertex_name_list(dag_path, vertex_ids)
+                vertex_names = self.create_vertex_name_list(day_path, vertex_ids)
                 if vertex_names:
-                    om2.MGlobal.executeCommand(
-                        f"move -a {center[0]} {center[1]} {center[2]} {' '.join(vertex_names)}"
-                    )
-                    om2.MGlobal.executeCommand(
-                        "polyMergeVertex -d 0.000001 -ch true"
-                    )  # TODO:melを使用する方法と計算速度の比較をする
+                    center = self.get_vertex_group_center(day_path, vertex_ids)
+                    # TODO : できればAPI の処理に変える
+                    mel.eval(f"move -a {center.x} {center.y} {center.z} {' '.join(vertex_names)}")
+                    target_vertex_name_list += vertex_names
 
         cmds.selectType(vertex=True)
-
+        cmds.select(target_vertex_name_list, replace=True)
+        mel.eval("polyMergeVertex -d 0.000001 -ch true")
 
 def cmdCreator():
     return multiCenterMerge()
