@@ -28,50 +28,23 @@ class multiCenterMerge(om2.MPxCommand):
             print("Please select edges or faces")
             return
 
-        merge_vertex_groups = {}
+        vert_id_groups_per_comp = self.classify_vert_ids_by_comp(selection_list)
+        vert_id_groups_by_adjacency = {
+            key: self.classify_vert_ids_by_adjacency(value)
+            for key, value in vert_id_groups_per_comp.items()
+        }
 
-        sel_iter = om2.MItSelectionList(selection_list, om2.MFn.kComponent)
-        while not sel_iter.isDone():
-            dag_path, component = sel_iter.getComponent()
-            dag_path_str = dag_path.__str__()
-            vertex_group = []
-            if component.apiType() == om2.MFn.kMeshEdgeComponent:
-                edge_iter = om2.MItMeshEdge(dag_path, component)
-                vertex_groups = self.convert_edges_to_merge_vertex_groups(edge_iter)
-
-            elif component.apiType() == om2.MFn.kMeshPolygonComponent:
-                poly_iter = om2.MItMeshPolygon(dag_path, component)
-                vertex_groups = self.convert_faces_to_merge_vertex_groups(poly_iter)
-
-            if dag_path_str in merge_vertex_groups.keys():
-                for vertex_group in vertex_groups:
-                    if not vertex_group in merge_vertex_groups[dag_path_str]:
-                        merge_vertex_groups[dag_path_str].append(vertex_group)
-            else:
-                merge_vertex_groups[dag_path_str] = vertex_groups
-
-            sel_iter.next()
-
-        adjacent_vertex_id_groups = {}
-        for key, value in merge_vertex_groups.items():
-            adjacent_vertex_id_groups[key] = self.group_adjacent_merge_vertex_groups(value)
-        print("adjacent_vertex_id_groups : {}".format(adjacent_vertex_id_groups))
-        self.merge_vertices(adjacent_vertex_id_groups)
+        self.merge_vertices(vert_id_groups_by_adjacency)
 
         print(kPluginCmdName + "_done")
         om2.MPxCommand.__init__(self)
 
-    def get_day_path_and_component(self, node_name):
-        selectionList = om2.MSelectionList()
-        selectionList.add(node_name)
-        dagPath, component = selectionList.getComponent(0)
-        return dagPath, component
-
-    def is_selection_valid(self, selection_list: om2.MSelectionList) -> bool:
+    @staticmethod
+    def is_selection_valid(selection_list: om2.MSelectionList) -> bool:
         """
-        現在の選択がエッジまたはフェースのみを含んでいるかどうかをチェックする
-        選択が空である、完全に選択されている、頂点を含んでいる、もしくはオブジェクトの選択を含んでいる場合はFalseを返す
-        TODO: マルチ選択モードを除外するか決める
+        現在の選択がエッジまたはフェースのみを含んでいる、もしくはエッジとフェース両方を選択しているマルチコンポーネント選択かをチェックする　
+        選択が空である、頂点を含んでいる、もしくはオブジェクトの選択を含んでいる場合はFalseを返す
+        # TODO: 完全に選択されているときにエラーを返すようにする
 
         Args:
             selection_list (om2.MSelectionList): 現在の選択リスト
@@ -84,44 +57,68 @@ class multiCenterMerge(om2.MPxCommand):
 
         sel_iter = om2.MItSelectionList(selection_list, om2.MFn.kComponent)
         while not sel_iter.isDone():
-            _, component = sel_iter.getComponent()
-            if component.isNull():
+            _, comp = sel_iter.getComponent()
+            if comp.isNull():
                 return False
 
-            api_type = component.apiType()
+            api_type = comp.apiType()
             if api_type not in (om2.MFn.kMeshEdgeComponent, om2.MFn.kMeshPolygonComponent):
                 return False
             sel_iter.next()
 
         return True
 
-    def convert_edges_to_merge_vertex_groups(self, edge_iter: om2.MItMeshEdge) -> list[list[int]]:
-        """
-        Example:
-            output: [[0, 1], [1, 2], [2, 3], [3, 0], ...]
-        """
-        vertex_id_groups = []
-        while not edge_iter.isDone():
-            merge_vertex_groups = [edge_iter.vertexId(0), edge_iter.vertexId(1)]
-            vertex_id_groups.append(merge_vertex_groups)
-            edge_iter.next()
+    def classify_vert_ids_by_comp(self, selection_list: om2.MSelectionList) -> dict[str, list[int]]:
+        def convert_edges_to_vert_groups(edge_iter: om2.MItMeshEdge) -> list[list[int]]:
+            """
+            Example:
+                output: [[0, 1], [1, 2], [2, 3], [3, 0], ...]
+            """
+            vert_id_groups = []
+            while not edge_iter.isDone():
+                merge_vert_groups = [edge_iter.vertId(0), edge_iter.vertId(1)]
+                vert_id_groups.append(merge_vert_groups)
+                edge_iter.next()
+            return vert_id_groups
 
-        return vertex_id_groups
+        def convert_faces_to_vert_groups(poly_iter: om2.MItMeshPolygon) -> list[list[int]]:
+            """
+            Example:
+                output: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], ...]
+            """
+            vert_id_groups = []
+            while not poly_iter.isDone():
+                merge_vert_groups = poly_iter.getVertices()
+                vert_id_groups.append(merge_vert_groups)
+                poly_iter.next()
+            return vert_id_groups
 
-    def convert_faces_to_merge_vertex_groups(self, poly_iter: om2.MItMeshPolygon) -> list[list[int]]:
-        """
-        Example:
-            output: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], ...]
-        """
-        vertex_id_groups = []
-        while not poly_iter.isDone():
-            merge_vertex_groups = poly_iter.getVertices()
-            vertex_id_groups.append(merge_vertex_groups)
-            poly_iter.next()
+        vert_id_groups_per_comp = {}
 
-        return vertex_id_groups
+        sel_iter = om2.MItSelectionList(selection_list, om2.MFn.kComponent)
+        while not sel_iter.isDone():
+            dag_path, comp = sel_iter.getComponent()
+            dag_path_str = dag_path.__str__()
 
-    def group_adjacent_merge_vertex_groups(self, vertex_index_groups) -> list:
+            if comp.apiType() == om2.MFn.kMeshEdgeComponent:
+                vert_groups = convert_edges_to_vert_groups(om2.MItMeshEdge(dag_path, comp))
+
+            elif comp.apiType() == om2.MFn.kMeshPolygonComponent:
+                vert_groups = convert_faces_to_vert_groups(om2.MItMeshPolygon(dag_path, comp))
+            else:
+                vert_groups = []
+
+            if dag_path_str in vert_id_groups_per_comp.keys():
+                if not vert_groups in vert_id_groups_per_comp[dag_path_str]:
+                    vert_id_groups_per_comp[dag_path_str].append(vert_groups)
+            else:
+                vert_id_groups_per_comp[dag_path_str] = vert_groups
+
+            sel_iter.next()
+
+        return vert_id_groups_per_comp
+
+    def classify_vert_ids_by_adjacency(self, vert_id_groups : list) -> list[list[int]]:
         """
         Use Union-Find Algorithm
 
@@ -131,55 +128,55 @@ class multiCenterMerge(om2.MPxCommand):
         """
         parent = {}
 
-        def find(vertex):
-            if parent[vertex] != vertex:
-                parent[vertex] = find(parent[vertex])
-            return parent[vertex]
+        def find(vert):
+            if parent[vert] != vert:
+                parent[vert] = find(parent[vert])
+            return parent[vert]
 
-        def union(vertex1, vertex2):
-            root1 = find(vertex1)
-            root2 = find(vertex2)
+        def union(vert1, vert2):
+            root1 = find(vert1)
+            root2 = find(vert2)
             if root1 != root2:
                 parent[root2] = root1
 
         # 各頂点の初期親を自身に設定
-        for group in vertex_index_groups:
-            for vertex in group:
-                if vertex not in parent:
-                    parent[vertex] = vertex
+        for group in vert_id_groups:
+            for vert in group:
+                if vert not in parent:
+                    parent[vert] = vert
 
         # 各頂点グループ内の頂点を同じグループにマージ
-        for group in vertex_index_groups:
-            first_vertex = group[0]
-            for vertex in group[1:]:
-                union(first_vertex, vertex)
+        for group in vert_id_groups:
+            first_vert = group[0]
+            for vert in group[1:]:
+                union(first_vert, vert)
 
         # マージされたグループを辞書で収集
         merged_groups = {}
-        for vertex in parent:
-            root = find(vertex)
+        for vert in parent:
+            root = find(vert)
             if root not in merged_groups:
                 merged_groups[root] = []
-            merged_groups[root].append(vertex)
+            merged_groups[root].append(vert)
 
         # 辞書から頂点グループのリストを抽出して各グループをソート
         return [sorted(group) for group in merged_groups.values()]
 
-    def create_vertex_name_list(self, dag_path, vertex_ids):
-        vertex_names = ["{}.vtx[{}]".format(dag_path.__str__(), int(vertex_id)) for vertex_id in vertex_ids]
-        return vertex_names
+    def create_vert_name_list(self, dag_path, vert_ids):
+        vert_names = ["{}.vtx[{}]".format(dag_path.__str__(), int(vert_id)) for vert_id in vert_ids]
+        return vert_names
 
-    def get_vertex_group_center(self, dag_path, vertex_ids) -> om2.MPoint:
+    def get_vert_group_center(self, dag_path, vert_ids) -> om2.MPoint:
         # TODO : iterの生成処理のためにMDagObjectとstringを行き来している処理の見直し
         selection_list = om2.MSelectionList()
         selection_list.add(dag_path)
         m_dag_path = selection_list.getDagPath(0)
 
         comp = om2.MObject()
-        _iter = om2.MItMeshVertex(m_dag_path, comp)
+        _iter = om2.MItMeshvert(m_dag_path, comp)
 
         point_array = om2.MPointArray()
-        for _id in vertex_ids:
+        for _id in vert_ids:
             point_array.append(_iter.position(om2.MSpace.kWorld))
             _iter.setIndex(_id)
 
@@ -187,24 +184,24 @@ class multiCenterMerge(om2.MPxCommand):
         center = om2.MPoint()
         for point in point_array:
             center += point
-        center /= len(vertex_ids)
+        center /= len(vert_ids)
 
         return center
 
-    def merge_vertices(self, adjacent_vertex_id_groups):
-        target_vertex_name_list = []
-        for day_path in adjacent_vertex_id_groups.keys():
-            vertex_id_groups = adjacent_vertex_id_groups[day_path]
-            for vertex_ids in vertex_id_groups:
-                vertex_names = self.create_vertex_name_list(day_path, vertex_ids)
-                if vertex_names:
-                    center = self.get_vertex_group_center(day_path, vertex_ids)
+    def merge_vertices(self, vert_id_groups_by_adjacency):
+        target_vert_name_list = []
+        for day_path in vert_id_groups_by_adjacency.keys():
+            vert_id_groups = vert_id_groups_by_adjacency[day_path]
+            for vert_ids in vert_id_groups:
+                vert_names = self.create_vert_name_list(day_path, vert_ids)
+                if vert_names:
+                    center = self.get_vert_group_center(day_path, vert_ids)
                     # TODO : API の処理に変える
-                    mel.eval(f"move -a {center.x} {center.y} {center.z} {' '.join(vertex_names)}")
-                    target_vertex_name_list += vertex_names
+                    mel.eval(f"move -a {center.x} {center.y} {center.z} {' '.join(vert_names)}")
+                    target_vert_name_list += vert_names
 
-        cmds.selectType(vertex=True)
-        cmds.select(target_vertex_name_list, replace=True)
+        cmds.selectType(vert=True)
+        cmds.select(target_vert_name_list, replace=True)
         # TODO : API の処理に変える
         mel.eval("polyMergeVertex -d 0.000001 -ch true")
 
