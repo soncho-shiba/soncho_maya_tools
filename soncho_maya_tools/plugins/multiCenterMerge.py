@@ -189,7 +189,6 @@ class multiCenterMerge(om2.MPxCommand):
             center += point
         center /= len(vertex_ids)
 
-
         return center
 
     def merge_vertices(self, adjacent_vertex_id_groups):
@@ -200,13 +199,15 @@ class multiCenterMerge(om2.MPxCommand):
                 vertex_names = self.create_vertex_name_list(day_path, vertex_ids)
                 if vertex_names:
                     center = self.get_vertex_group_center(day_path, vertex_ids)
-                    # TODO : できればAPI の処理に変える
+                    # TODO : API の処理に変える
                     mel.eval(f"move -a {center.x} {center.y} {center.z} {' '.join(vertex_names)}")
                     target_vertex_name_list += vertex_names
 
         cmds.selectType(vertex=True)
         cmds.select(target_vertex_name_list, replace=True)
+        # TODO : API の処理に変える
         mel.eval("polyMergeVertex -d 0.000001 -ch true")
+
 
 def cmdCreator():
     return multiCenterMerge()
