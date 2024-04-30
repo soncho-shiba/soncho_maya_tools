@@ -25,13 +25,12 @@ class multiCenterMerge(om2.MPxCommand):
         # TODO:UNDO処理を書く
         selection_list = om2.MGlobal.getActiveSelectionList()
         if not self.is_selection_valid(selection_list):
-            print("Please select edges or faces")
+            print("Invalid selection. Please select edges or faces")
             return
 
         vert_id_groups_per_comp = self.classify_vert_ids_by_comp(selection_list)
         vert_id_groups_by_adjacency = {
-            key: self.classify_vert_ids_by_adjacency(value)
-            for key, value in vert_id_groups_per_comp.items()
+            key: self.classify_vert_ids_by_adjacency(value) for key, value in vert_id_groups_per_comp.items()
         }
 
         self.merge_vertices(vert_id_groups_by_adjacency)
@@ -42,9 +41,8 @@ class multiCenterMerge(om2.MPxCommand):
     @staticmethod
     def is_selection_valid(selection_list: om2.MSelectionList) -> bool:
         """
-        現在の選択がエッジまたはフェースのみを含んでいる、もしくはエッジとフェース両方を選択しているマルチコンポーネント選択かをチェックする　
-        選択が空である、頂点を含んでいる、もしくはオブジェクトの選択を含んでいる場合はFalseを返す
-        # TODO: 完全に選択されているときにエラーを返すようにする
+        現在の選択がエッジまたはフェースのみを含んでいる、もしくはエッジとフェース両方を選択しているマルチコンポーネント選択かをチェックする
+        選択が空である、頂点を含んでいる、全選択されている、もしくはオブジェクトの選択を含んでいる場合はFalseを返す
 
         Args:
             selection_list (om2.MSelectionList): 現在の選択リスト
@@ -57,13 +55,27 @@ class multiCenterMerge(om2.MPxCommand):
 
         sel_iter = om2.MItSelectionList(selection_list, om2.MFn.kComponent)
         while not sel_iter.isDone():
-            _, comp = sel_iter.getComponent()
+            dag_path, comp = sel_iter.getComponent()
             if comp.isNull():
                 return False
 
             api_type = comp.apiType()
             if api_type not in (om2.MFn.kMeshEdgeComponent, om2.MFn.kMeshPolygonComponent):
                 return False
+
+            mesh_fn = om2.MFnMesh(dag_path)
+            if api_type == om2.MFn.kMeshEdgeComponent:
+                total_edges = mesh_fn.numEdges
+                sel_edges = om2.MFnSingleIndexedComponent(comp).elementCount
+                if sel_edges == total_edges:
+                    return False
+
+            if api_type == om2.MFn.kMeshPolygonComponent:
+                total_faces = mesh_fn.numPolygons
+                sel_faces = om2.MFnSingleIndexedComponent(comp).elementCount
+                if sel_faces == total_faces:
+                    return False
+
             sel_iter.next()
 
         return True
