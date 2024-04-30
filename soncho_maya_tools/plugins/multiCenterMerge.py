@@ -76,7 +76,7 @@ class multiCenterMerge(om2.MPxCommand):
             """
             vert_id_groups = []
             while not edge_iter.isDone():
-                merge_vert_groups = [edge_iter.vertId(0), edge_iter.vertId(1)]
+                merge_vert_groups = [edge_iter.vertexId(0), edge_iter.vertexId(1)]
                 vert_id_groups.append(merge_vert_groups)
                 edge_iter.next()
             return vert_id_groups
@@ -173,7 +173,7 @@ class multiCenterMerge(om2.MPxCommand):
         m_dag_path = selection_list.getDagPath(0)
 
         comp = om2.MObject()
-        _iter = om2.MItMeshvert(m_dag_path, comp)
+        _iter = om2.MItMeshVertex(m_dag_path, comp)
 
         point_array = om2.MPointArray()
         for _id in vert_ids:
