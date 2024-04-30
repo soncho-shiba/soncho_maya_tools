@@ -1,11 +1,12 @@
-import math
+import sys
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 import maya.mel as mel
-from collections import deque
-import itertools
 
 kPluginCmdName = "multiCenterMerge"
+
+if sys.version_info[0] != 3:
+    raise Exception("This script requires Python 3.x")
 
 
 def maya_useNewAPI():
@@ -80,7 +81,7 @@ class multiCenterMerge(om2.MPxCommand):
 
         return True
 
-    def classify_vert_ids_by_comp(self, selection_list: om2.MSelectionList) -> dict[str, list[int]]:
+    def classify_vert_ids_by_comp(self, selection_list: om2.MSelectionList) -> 'dict[str, list[int]]':
         def convert_edges_to_vert_groups(edge_iter: om2.MItMeshEdge) -> list[list[int]]:
             """
             Example:
@@ -130,7 +131,7 @@ class multiCenterMerge(om2.MPxCommand):
 
         return vert_id_groups_per_comp
 
-    def classify_vert_ids_by_adjacency(self, vert_id_groups : list) -> list[list[int]]:
+    def classify_vert_ids_by_adjacency(self, vert_id_groups: list) -> 'list[list[int]]':
         """
         Use Union-Find Algorithm
 
@@ -174,7 +175,7 @@ class multiCenterMerge(om2.MPxCommand):
         # 辞書から頂点グループのリストを抽出して各グループをソート
         return [sorted(group) for group in merged_groups.values()]
 
-    def create_vert_name_list(self, dag_path, vert_ids):
+    def create_vert_name_list(self, dag_path, vert_ids) -> 'list[str]':
         vert_names = ["{}.vtx[{}]".format(dag_path.__str__(), int(vert_id)) for vert_id in vert_ids]
         return vert_names
 
@@ -200,7 +201,7 @@ class multiCenterMerge(om2.MPxCommand):
 
         return center
 
-    def merge_vertices(self, vert_id_groups_by_adjacency):
+    def merge_vertices(self, vert_id_groups_by_adjacency) -> None:
         target_vert_name_list = []
         for day_path in vert_id_groups_by_adjacency.keys():
             vert_id_groups = vert_id_groups_by_adjacency[day_path]
