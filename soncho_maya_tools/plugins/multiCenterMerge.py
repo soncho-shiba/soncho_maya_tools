@@ -82,7 +82,7 @@ class multiCenterMerge(om2.MPxCommand):
         return True
 
     def classify_vert_ids_by_comp(self, selection_list: om2.MSelectionList) -> 'dict[str, list[int]]':
-        def convert_edges_to_vert_groups(edge_iter: om2.MItMeshEdge) -> list[list[int]]:
+        def convert_edges_to_vert_groups(edge_iter: om2.MItMeshEdge) -> 'list[list[int]]':
             """
             Example:
                 output: [[0, 1], [1, 2], [2, 3], [3, 0], ...]
@@ -94,7 +94,7 @@ class multiCenterMerge(om2.MPxCommand):
                 edge_iter.next()
             return vert_id_groups
 
-        def convert_faces_to_vert_groups(poly_iter: om2.MItMeshPolygon) -> list[list[int]]:
+        def convert_faces_to_vert_groups(poly_iter: om2.MItMeshPolygon) -> 'list[list[int]]':
             """
             Example:
                 output: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], ...]
