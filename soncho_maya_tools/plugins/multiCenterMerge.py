@@ -36,7 +36,7 @@ class multiCenterMerge(om2.MPxCommand):
 
         self.merge_vertices(vert_id_groups_by_adjacency)
 
-        print(kPluginCmdName + "_done")
+        print(kPluginCmdName + "done")
         om2.MPxCommand.__init__(self)
 
     @staticmethod
@@ -81,8 +81,8 @@ class multiCenterMerge(om2.MPxCommand):
 
         return True
 
-    def classify_vert_ids_by_comp(self, selection_list: om2.MSelectionList) -> 'dict[str, list[int]]':
-        def convert_edges_to_vert_groups(edge_iter: om2.MItMeshEdge) -> 'list[list[int]]':
+    def classify_vert_ids_by_comp(self, selection_list: om2.MSelectionList) -> "dict[str, list[int]]":
+        def convert_edges_to_vert_groups(edge_iter: om2.MItMeshEdge) -> "list[list[int]]":
             """
             Example:
                 output: [[0, 1], [1, 2], [2, 3], [3, 0], ...]
@@ -94,7 +94,7 @@ class multiCenterMerge(om2.MPxCommand):
                 edge_iter.next()
             return vert_id_groups
 
-        def convert_faces_to_vert_groups(poly_iter: om2.MItMeshPolygon) -> 'list[list[int]]':
+        def convert_faces_to_vert_groups(poly_iter: om2.MItMeshPolygon) -> "list[list[int]]":
             """
             Example:
                 output: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], ...]
@@ -131,7 +131,7 @@ class multiCenterMerge(om2.MPxCommand):
 
         return vert_id_groups_per_comp
 
-    def classify_vert_ids_by_adjacency(self, vert_id_groups: list) -> 'list[list[int]]':
+    def classify_vert_ids_by_adjacency(self, vert_id_groups: list) -> "list[list[int]]":
         """
         Use Union-Find Algorithm
 
@@ -175,7 +175,7 @@ class multiCenterMerge(om2.MPxCommand):
         # 辞書から頂点グループのリストを抽出して各グループをソート
         return [sorted(group) for group in merged_groups.values()]
 
-    def create_vert_name_list(self, dag_path, vert_ids) -> 'list[str]':
+    def create_vert_name_list(self, dag_path, vert_ids) -> "list[str]":
         vert_names = ["{}.vtx[{}]".format(dag_path.__str__(), int(vert_id)) for vert_id in vert_ids]
         return vert_names
 
@@ -209,12 +209,12 @@ class multiCenterMerge(om2.MPxCommand):
                 vert_names = self.create_vert_name_list(day_path, vert_ids)
                 if vert_names:
                     center = self.get_vert_group_center(day_path, vert_ids)
-                    # TODO : API の処理に変える
+                    # melを呼んでいるのでUNDO待ち行列に追加されている
                     mel.eval(f"move -a {center.x} {center.y} {center.z} {' '.join(vert_names)}")
                     target_vert_name_list += vert_names
 
         cmds.select(target_vert_name_list, replace=True)
-        # TODO : API の処理に変える
+        # melを読んでいるのでUNDO待ち行列に追加されている
         mel.eval("polyMergeVertex -d 0.000001 -ch true")
 
 
