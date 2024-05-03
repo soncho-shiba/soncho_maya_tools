@@ -213,7 +213,6 @@ class multiCenterMerge(om2.MPxCommand):
                     mel.eval(f"move -a {center.x} {center.y} {center.z} {' '.join(vert_names)}")
                     target_vert_name_list += vert_names
 
-        cmds.selectType(vert=True)
         cmds.select(target_vert_name_list, replace=True)
         # TODO : API の処理に変える
         mel.eval("polyMergeVertex -d 0.000001 -ch true")
