@@ -180,7 +180,6 @@ class multiCenterMerge(om2.MPxCommand):
         return vert_names
 
     def get_vert_group_center(self, dag_path, vert_ids) -> "list[float]":
-        # TODO : iterの生成処理のためにMDagObjectとstringを行き来している処理の見直し
         selection_list = om2.MSelectionList()
         selection_list.add(dag_path)
         m_dag_path = selection_list.getDagPath(0)
