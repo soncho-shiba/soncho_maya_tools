@@ -2,6 +2,7 @@ import sys
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
 import maya.mel as mel
+import decimal
 
 kPluginCmdName = "multiCenterMerge"
 
@@ -187,18 +188,24 @@ class multiCenterMerge(om2.MPxCommand):
 
         comp = om2.MObject()
         _iter = om2.MItMeshVertex(m_dag_path, comp)
-
         point_array = om2.MPointArray()
         for _id in vert_ids:
             point_array.append(_iter.position(om2.MSpace.kWorld))
             _iter.setIndex(_id)
 
-        # TODO: center の計算をちゃんとする
-        center = om2.MPoint()
-        for point in point_array:
-            center += point
-        center /= len(vert_ids)
+        x_total = 0.0
+        y_total = 0.0
+        z_total = 0.0
 
+        # TODO: 丸めの妥当な桁数の設定　小数点8桁に設定したあたりから浮動小数の指数リテラルが入ってくる肌感
+        for point in point_array:
+            x_total += round(point.x, 7)
+            y_total += round(point.y, 7)
+            z_total += round(point.z, 7)
+        x_center = round(x_total / len(vert_ids), 7)
+        y_center = round(y_total / len(vert_ids), 7)
+        z_center = round(z_total / len(vert_ids), 7)
+        center = om2.MPoint(x_center, y_center, z_center, 1.0)
         return center
 
     def merge_vertices(self, vert_id_groups_by_adjacency) -> None:
@@ -209,8 +216,10 @@ class multiCenterMerge(om2.MPxCommand):
                 vert_names = self.create_vert_name_list(day_path, vert_ids)
                 if vert_names:
                     center = self.get_vert_group_center(day_path, vert_ids)
+                    # なるほど　ここ、たぶんワールドスペースの値をローカルスペースにしてしまってる可能性がある
                     # melを呼んでいるのでUNDO待ち行列に追加されている
-                    mel.eval(f"move -a {center.x} {center.y} {center.z} {' '.join(vert_names)}")
+                    # mel.eval(f"move -r {center.x} {center.y} {center.z} {' '.join(vert_names)}")
+                    cmds.move(center.x, center.y, center.z, vert_names, worldSpace=True, moveXYZ=True)
                     target_vert_name_list += vert_names
 
         cmds.select(target_vert_name_list, replace=True)
