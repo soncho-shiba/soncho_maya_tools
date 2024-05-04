@@ -179,27 +179,31 @@ class multiCenterMerge(om2.MPxCommand):
         vert_names = ["{}.vtx[{}]".format(dag_path.__str__(), int(vert_id)) for vert_id in vert_ids]
         return vert_names
 
-    def get_vert_group_center(self, dag_path, vert_ids) -> om2.MPoint:
+    def get_vert_group_center(self, dag_path, vert_ids) -> "list[float]":
         # TODO : iterの生成処理のためにMDagObjectとstringを行き来している処理の見直し
         selection_list = om2.MSelectionList()
         selection_list.add(dag_path)
         m_dag_path = selection_list.getDagPath(0)
 
         comp = om2.MObject()
-        _iter = om2.MItMeshVertex(m_dag_path, comp)
-
-        point_array = om2.MPointArray()
-        for _id in vert_ids:
-            point_array.append(_iter.position(om2.MSpace.kWorld))
-            _iter.setIndex(_id)
+        mesh_vertex_iter = om2.MItMeshVertex(m_dag_path, comp)
 
         # TODO: center の計算をちゃんとする
-        center = om2.MPoint()
-        for point in point_array:
-            center += point
-        center /= len(vert_ids)
+        x_total = 0.0
+        y_total = 0.0
+        z_total = 0.0
+        for _id in vert_ids:
+            pos = mesh_vertex_iter.position(om2.MSpace.kWorld)
+            x_total += pos.x
+            y_total += pos.y
+            z_total += pos.z
+            mesh_vertex_iter.setIndex(_id)
 
-        return center
+        x_center = x_total / len(vert_ids)
+        y_center = y_total / len(vert_ids)
+        z_center = z_total / len(vert_ids)
+
+        return [x_center, y_center, z_center]
 
     def merge_vertices(self, vert_id_groups_by_adjacency) -> None:
         target_vert_name_list = []
@@ -209,12 +213,12 @@ class multiCenterMerge(om2.MPxCommand):
                 vert_names = self.create_vert_name_list(day_path, vert_ids)
                 if vert_names:
                     center = self.get_vert_group_center(day_path, vert_ids)
-                    # melを呼んでいるのでUNDO待ち行列に追加されている
-                    mel.eval(f"move -a {center.x} {center.y} {center.z} {' '.join(vert_names)}")
+                    # コマンドを呼んでいるのでUndo待ち行列に追加されている
+                    cmds.move(center[0], center[1], center[2], vert_names, absolute=True, worldSpace=True)
                     target_vert_name_list += vert_names
 
         cmds.select(target_vert_name_list, replace=True)
-        # melを読んでいるのでUNDO待ち行列に追加されている
+        # コマンドを呼んでいるのでUndo待ち行列に追加されている
         mel.eval("polyMergeVertex -d 0.000001 -ch true")
 
 
