@@ -187,16 +187,15 @@ class multiCenterMerge(om2.MPxCommand):
         comp = om2.MObject()
         mesh_vertex_iter = om2.MItMeshVertex(m_dag_path, comp)
 
-        # TODO: center の計算をちゃんとする
         x_total = 0.0
         y_total = 0.0
         z_total = 0.0
         for _id in vert_ids:
+            mesh_vertex_iter.setIndex(_id)
             pos = mesh_vertex_iter.position(om2.MSpace.kWorld)
             x_total += pos.x
             y_total += pos.y
             z_total += pos.z
-            mesh_vertex_iter.setIndex(_id)
 
         x_center = x_total / len(vert_ids)
         y_center = y_total / len(vert_ids)
