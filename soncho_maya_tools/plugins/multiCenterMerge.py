@@ -23,7 +23,6 @@ class multiCenterMerge(om2.MPxCommand):
         om2.MPxCommand.__init__(self)
 
     def doIt(self, args):
-        # TODO:UNDO処理を書く
         selection_list = om2.MGlobal.getActiveSelectionList()
         if not self.is_selection_valid(selection_list):
             print("Invalid selection. Please select edges or faces")
