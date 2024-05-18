@@ -150,14 +150,14 @@ class multiCenterMerge(om2.MPxCommand):
         """
         parent = {}
 
-        def find(vert):
-            if parent[vert] != vert:
-                parent[vert] = find(parent[vert])
-            return parent[vert]
+        def find(_vert):
+            if parent[_vert] != _vert:
+                parent[_vert] = find(parent[_vert])
+            return parent[_vert]
 
-        def union(vert1, vert2):
-            root1 = find(vert1)
-            root2 = find(vert2)
+        def union(_vert1, _vert2):
+            root1 = find(_vert1)
+            root2 = find(_vert2)
             if root1 != root2:
                 parent[root2] = root1
 
@@ -237,9 +237,11 @@ class multiCenterMerge(om2.MPxCommand):
 def cmdCreator():
     return multiCenterMerge()
 
+
 def _get_plugin_instance(plugin_object, is_initializing=True):
     return om2.MFnPlugin(plugin_object, "soncho_shiba", "0.1", "Any") if is_initializing else om2.MFnPlugin(
         plugin_object)
+
 
 def initializePlugin(obj):
     plugin = om2.MFnPlugin(obj, "soncho_shiba", "1.0", "Any")
