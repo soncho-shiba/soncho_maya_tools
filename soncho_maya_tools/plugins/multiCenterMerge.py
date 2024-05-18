@@ -40,7 +40,8 @@ class multiCenterMerge(om2.MPxCommand):
         om2.MPxCommand.__init__(self)
 
     @staticmethod
-    def is_selection_valid(selection_list: om2.MSelectionList) -> bool:
+    def is_selection_valid(selection_list):
+        # type: (om2.MSelectionList) -> bool
         """
         現在の選択がエッジまたはフェースのみを含んでいる、もしくはエッジとフェース両方を選択しているマルチコンポーネント選択かをチェックする
         選択が空である、頂点を含んでいる、全選択されている、もしくはオブジェクトの選択を含んでいる場合はFalseを返す
@@ -81,8 +82,11 @@ class multiCenterMerge(om2.MPxCommand):
 
         return True
 
-    def classify_vert_ids_by_comp(self, selection_list: om2.MSelectionList) -> "dict[str, list[int]]":
-        def convert_edges_to_vert_groups(edge_iter: om2.MItMeshEdge) -> "list[list[int]]":
+    def classify_vert_ids_by_comp(self, selection_list):
+        # type: (om2.MSelectionList) -> "dict[str, list[int]]"
+        def convert_edges_to_vert_groups(edge_iter):
+            # type: (om2.MItMeshEdge) -> "list[list[int]]"
+
             """
             Example:
                 output: [[0, 1], [1, 2], [2, 3], [3, 0], ...]
@@ -94,7 +98,8 @@ class multiCenterMerge(om2.MPxCommand):
                 edge_iter.next()
             return vert_id_groups
 
-        def convert_faces_to_vert_groups(poly_iter: om2.MItMeshPolygon) -> "list[list[int]]":
+        def convert_faces_to_vert_groups(poly_iter):
+            # type: (om2.MItMeshPolygon) -> "list[list[int]]"
             """
             Example:
                 output: [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11], ...]
@@ -122,7 +127,7 @@ class multiCenterMerge(om2.MPxCommand):
                 vert_groups = []
 
             if dag_path_str in vert_id_groups_per_comp.keys():
-                if not vert_groups in vert_id_groups_per_comp[dag_path_str]:
+                if vert_groups not in vert_id_groups_per_comp[dag_path_str]:
                     vert_id_groups_per_comp[dag_path_str].append(vert_groups)
             else:
                 vert_id_groups_per_comp[dag_path_str] = vert_groups
@@ -131,7 +136,8 @@ class multiCenterMerge(om2.MPxCommand):
 
         return vert_id_groups_per_comp
 
-    def classify_vert_ids_by_adjacency(self, vert_id_groups: list) -> "list[list[int]]":
+    def classify_vert_ids_by_adjacency(self, vert_id_groups):
+        # type: (list) -> "list[list[int]]"
         """
         Use Union-Find Algorithm
 
@@ -175,11 +181,13 @@ class multiCenterMerge(om2.MPxCommand):
         # 辞書から頂点グループのリストを抽出して各グループをソート
         return [sorted(group) for group in merged_groups.values()]
 
-    def create_vert_name_list(self, dag_path, vert_ids) -> "list[str]":
+    def create_vert_name_list(self, dag_path, vert_ids):
+        # type: (om2.MDagPath, "list[int]") -> "list[str]"
         vert_names = ["{}.vtx[{}]".format(dag_path.__str__(), int(vert_id)) for vert_id in vert_ids]
         return vert_names
 
-    def get_vert_group_center(self, dag_path, vert_ids) -> "list[float]":
+    def get_vert_group_center(self, dag_path, vert_ids):
+        # type: (om2.MDagPath, "list[int]") -> "list[float]"
         selection_list = om2.MSelectionList()
         selection_list.add(dag_path)
         m_dag_path = selection_list.getDagPath(0)
@@ -203,7 +211,8 @@ class multiCenterMerge(om2.MPxCommand):
 
         return [x_center, y_center, z_center]
 
-    def merge_vertices(self, vert_id_groups_by_adjacency) -> None:
+    def merge_vertices(self, vert_id_groups_by_adjacency):
+        # type: ( "Dict[str, List[List[int]]]" ) -> None
         target_vert_name_list = []
         for day_path in vert_id_groups_by_adjacency.keys():
             vert_id_groups = vert_id_groups_by_adjacency[day_path]
