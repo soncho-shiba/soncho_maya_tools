@@ -106,7 +106,6 @@ class multiCenterMerge(om2.MPxCommand):
             while not poly_iter.isDone():
                 merge_vert_groups = poly_iter.getVertices()
                 vert_id_groups.append(merge_vert_groups)
-
                 poly_iter.next()
             return vert_id_groups
 
