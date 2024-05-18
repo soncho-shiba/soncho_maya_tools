@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import maya.api.OpenMaya as om2
 import maya.cmds as cmds
