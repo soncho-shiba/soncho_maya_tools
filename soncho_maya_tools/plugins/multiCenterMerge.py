@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import maya.api.OpenMaya as om2
+
 import maya.cmds as cmds
 import maya.mel as mel
 
@@ -236,12 +237,16 @@ class multiCenterMerge(om2.MPxCommand):
 def cmdCreator():
     return multiCenterMerge()
 
+def _get_plugin_instance(plugin_object, is_initializing=True):
+    return om2.MFnPlugin(plugin_object, "soncho_shiba", "0.1", "Any") if is_initializing else om2.MFnPlugin(
+        plugin_object)
 
 def initializePlugin(obj):
-    plugin = om2.MFnPlugin(obj, "soncho_shiba", "0.1", "Any")
+    plugin = om2.MFnPlugin(obj, "soncho_shiba", "1.0", "Any")
     try:
         plugin.registerCommand(kPluginCmdName, cmdCreator)
-    except:
+
+    except Exception as e:
         raise Exception("Failed to register command:{}".format(kPluginCmdName))
 
 
@@ -250,7 +255,7 @@ def uninitializePlugin(obj):
     try:
         plugin.deregisterCommand(kPluginCmdName)
 
-    except:
+    except Exception as e:
         raise Exception("Failed to unregister command:{}".format(kPluginCmdName))
 
 
