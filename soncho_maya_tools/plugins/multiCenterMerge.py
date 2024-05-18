@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
-import sys
 import maya.api.OpenMaya as om2
 
 import maya.cmds as cmds
 import maya.mel as mel
 
 kPluginCmdName = "multiCenterMerge"
-
-if sys.version_info[0] != 3:
-    raise Exception("This script requires Python 3.x")
 
 
 def maya_useNewAPI():
