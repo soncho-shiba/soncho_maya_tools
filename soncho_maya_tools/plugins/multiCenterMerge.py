@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
+import sys
 import maya.api.OpenMaya as om2
-
 import maya.cmds as cmds
 import maya.mel as mel
 
@@ -20,7 +20,7 @@ class multiCenterMerge(om2.MPxCommand):
     def __init__(self):
         om2.MPxCommand.__init__(self)
 
-    def doIt(self, args):
+    def doIt(self, *args):
         selection_list = om2.MGlobal.getActiveSelectionList()
         if not self.is_selection_valid(selection_list):
             print("Invalid selection. Please select edges or faces")
@@ -106,6 +106,7 @@ class multiCenterMerge(om2.MPxCommand):
             while not poly_iter.isDone():
                 merge_vert_groups = poly_iter.getVertices()
                 vert_id_groups.append(merge_vert_groups)
+
                 poly_iter.next()
             return vert_id_groups
 
@@ -221,12 +222,12 @@ class multiCenterMerge(om2.MPxCommand):
                 vert_names = self.create_vert_name_list(day_path, vert_ids)
                 if vert_names:
                     center = self.get_vert_group_center(day_path, vert_ids)
-                    # コマンドを呼んでいるのでUndo待ち行列に追加されている
+                    #  標準コマンドを呼んでいるのでUndo待ち行列に追加される
                     cmds.move(center[0], center[1], center[2], vert_names, absolute=True, worldSpace=True)
                     target_vert_name_list += vert_names
 
         cmds.select(target_vert_name_list, replace=True)
-        # コマンドを呼んでいるのでUndo待ち行列に追加されている
+        # 標準コマンドを呼んでいるのでUndo待ち行列に追加される
         mel.eval("polyMergeVertex -d 0.000001 -ch true")
 
 
