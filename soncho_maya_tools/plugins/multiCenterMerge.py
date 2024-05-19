@@ -6,6 +6,45 @@ import maya.mel as mel
 
 kPluginCmdName = "multiCenterMerge"
 
+"""
+MIT License
+
+Copyright (c) 2024 soncho_shiba
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+""" 
+how to use
+このファイルをMAYA_PLUGIN_PATHの設定されているフォルダに置き、以下の<mel>もしくは<python>のいずれかを実行してください
+Place this file in the folder specified by MAYA_PLUGIN_PATH and execute either of the following <mel> or <python> instructions.
+(e.g., %USERPROFILE%/Documents/maya/2025/plug-ins)
+
+<mel>
+loadPlugin "multiCenterMerge.py";
+multiCenterMerge;
+
+<python>
+import maya.cmds as cmds
+cmds.loadPlugin("multiCenterMerge.py")
+cmds.multiCenterMerge()
+"""
 
 def maya_useNewAPI():
     """
@@ -257,8 +296,4 @@ def uninitializePlugin(obj):
         raise Exception("Failed to unregister command:{}".format(kPluginCmdName))
 
 
-""" how to use
-import maya.cmds as cmds
-cmds.loadPlugin("multiCenterMerge.py")
-cmds.multiCenterMerge()
-"""
+
