@@ -1,122 +1,90 @@
 # -*- coding: utf-8 -*-
 import maya.cmds as cmds
-import maya.mel as mel
-from collections import namedtuple
-
-__name__ = 'toggle_grid_display'
-
-OptionVarValue = namedtuple('OptionVarValue', ['type', 'name', 'value'])
 
 """
-optionVar -fv gridSpacing 5 -fv gridDivisions 5 -fv gridSize 12 -intValue displayGridAxes 1 -intValue displayGridLines 1 -intValue displayDivisionLines 1 -intValue displayGridPerspLabels 0 -intValue displayGridOrthoLabels 0 -intValue displayGridAxesAccented 1 -stringValue displayGridPerspLabelPosition axis -stringValue displayGridOrthoLabelPosition edge;
+reference: performGridOptions.mel    
 """
-user_option_vars = []
-default_option_vars = [
-    OptionVarValue('fv', 'gridSpacing', 5.),  # Length and width
-    OptionVarValue('fv', 'gridDivisions', 5.),  # Subdivision
-    OptionVarValue('fv', 'gridSize', 12.),  # Grid Lines every
-    OptionVarValue('intValue', 'displayGridAxes', 1),  # Display > Axes
-    OptionVarValue('intValue', 'displayGridLines', 1),  # Display > Grid lines
-    OptionVarValue('intValue', 'displayDivisionLines', 1),  # Display > Subdivision lines
-    OptionVarValue('intValue', 'displayGridPerspLabels', 0),
-    # Perpective grid numbers > 0: Hide/1: OnAxes/2: along edge
-    OptionVarValue('intValue', 'displayGridOrthoLabels', 0),
-    # Orthographic grid numbers > 0: Hide/1: OnAxes/2: along edge
-    OptionVarValue('intValue', 'displayGridAxesAccented', 1),  # Display > Thicker line for axis
-    OptionVarValue('stringValue', 'displayGridPerspLabelPosition', 'axis'),
-    # Perpective grid numbers > 0: Hide/1: OnAxes/2: along edge
-    OptionVarValue('stringValue', 'displayGridOrthoLabelPosition', 'edge')
-    # Orthographic grid numbers > 0: Hide/1: OnAxes/2: along edge
-]
-
-custum_option_vars = [
-    OptionVarValue('fv', 'gridSpacing', 100.),  # Length and width
-    OptionVarValue('fv', 'gridDivisions', 1.),  # Subdivision
-    OptionVarValue('fv', 'gridSize', 500.),  # Grid Lines every
-    OptionVarValue('intValue', 'displayGridAxes', 1),  # Display > Axes
-    OptionVarValue('intValue', 'displayGridLines', 1),  # Display > Grid lines
-    OptionVarValue('intValue', 'displayDivisionLines', 1),  # Display > Subdivision lines
-    OptionVarValue('intValue', 'displayGridPerspLabels', 0),
-    # Perpective grid numbers > 0: Hide/1: OnAxes/2: along edge
-    OptionVarValue('intValue', 'displayGridOrthoLabels', 0),
-    # Orthographic grid numbers > 0: Hide/1: OnAxes/2: along edge
-    OptionVarValue('intValue', 'displayGridAxesAccented', 1),  # Display > Thicker line for axis
-    OptionVarValue('stringValue', 'displayGridPerspLabelPosition', 'axis'),
-    # Perpective grid numbers > 0: Hide/1: OnAxes/2: along edge
-    OptionVarValue('stringValue', 'displayGridOrthoLabelPosition', 'edge')
-    # Orthographic grid numbers > 0: Hide/1: OnAxes/2: along edge
-]
+"""default values 
+OptionVarValue = namedtuple('OptionVarValue', ['type', 'name', 'value']) 
+default_option_vars = [ 
+OptionVarValue('fv', 'gridSpacing', 5.),  # Length and width OptionVarValue('fv', 'gridDivisions', 5.),  
+# Subdivision OptionVarValue('fv', 'gridSize', 12.),  # Grid Lines every OptionVarValue('intValue', 
+'displayGridAxes', 1),  # Display > Axes OptionVarValue('intValue', 'displayGridLines', 1),  # Display > Grid lines 
+OptionVarValue('intValue', 'displayDivisionLines', 1),  # Display > Subdivision lines OptionVarValue('intValue', 
+'displayGridPerspLabels', 0),# Perpective grid numbers > 0: Hide/1: OnAxes/2: along edge OptionVarValue('intValue', 
+'displayGridOrthoLabels', 0),# Orthographic grid numbers > 0: Hide/1: OnAxes/2: along edge OptionVarValue('intValue', 
+'displayGridAxesAccented', 1),  # Display > Thicker line for axis OptionVarValue('stringValue', 
+'displayGridPerspLabelPosition', 'axis'),# Perpective grid numbers > 0: Hide/1: OnAxes/2: along edge OptionVarValue(
+'stringValue', 'displayGridOrthoLabelPosition', 'edge')# Orthographic grid numbers > 0: Hide/1: OnAxes/2: along edge 
+]"""
 
 
-#TODO:2023以降では処理を分岐してcatを設定する必要があることに注意
-def get_user_option():
-    #type: () -> bool
+class GridSettings:
+    def __init__(self):
+        self.grid_toggle = cmds.grid(toggle=True, q=True)
+        self.space = cmds.grid(spacing=True, q=True)  # Length and width
+        self.divisions = cmds.grid(divisions=True, q=True)  # Subdivision
+        self.size = cmds.grid(size=True, q=True)  # Grid Lines every
+        self.display_axes = cmds.grid(displayAxes=True, q=True)  # Display > Axes
+        self.display_grid_lines = cmds.grid(displayGridLines=True, q=True)  # Display > Grid lines
+        self.display_division_lines = cmds.grid(displayDivisionLines=True, q=True)  # Display > Subdivision lines
+        self.display_perspective_labels = cmds.grid(displayPerspectiveLabels=True, q=True)  # Perspective grid numbers
+        self.display_orthographic_labels = cmds.grid(displayOrthographicLabels=True, q=True) # Orthographic grid numbers
+        self.display_axes_bold = cmds.grid(displayAxesBold=True, q=True)  # Display > Thicker line for axis
+        self.perspective_label_position = cmds.grid(perspectiveLabelPosition=True, q=True)  # Perspective grid numbers
+        self.orthographic_label_position = cmds.grid(orthographicLabelPosition=True, q=True) # Orthographic grid numbers
+        self.grid_axis_color = cmds.displayColor("gridAxis", q=True)  # Color > Axes
+        self.grid_highlight_color = cmds.displayColor("gridHighlight", q=True)  # Color > Gridlines&numbers
+        self.grid_color = cmds.displayColor("grid", q=True)  # Color > Subdivision line
 
-    for option_var in default_option_vars:
-        if cmds.optionVar(exists=option_var.name):
-            user_option_var = OptionVarValue(option_var.type, option_var.name, option_var.value)
-            user_option_vars.append(user_option_var)
-
-    if len(user_option_vars) <= 0:
-        return False
-    else:
-        return True
-
-def set_user_options():
-    for option_var in user_option_vars:
-        if cmds.optionVar(exists=option_var.name):
-            if option_var.type == "fv":
-                cmds.optionVar(fv=(option_var.name, option_var.value))
-
-            if option_var.type == "intValue":
-                cmds.optionVar(intValue=(option_var.name, option_var.value))
-
-            if option_var.type == "stringValue":
-                cmds.optionVar(stringValue=(option_var.name, option_var.value))
-
-
-def set_custom_options():
-    for option_var in custum_option_vars:
-        if cmds.optionVar(exists=option_var.name):
-            if option_var.type == "fv":
-                cmds.optionVar(fv=(option_var.name, option_var.value))
-
-            if option_var.type == "intValue":
-                cmds.optionVar(intValue=(option_var.name, option_var.value))
-
-            if option_var.type == "stringValue":
-                cmds.optionVar(stringValue=(option_var.name, option_var.value))
+    def apply(self):
+        cmds.grid(toggle=self.grid_toggle)
+        cmds.grid(spacing=self.space)
+        cmds.grid(divisions=self.divisions)
+        cmds.grid(size=self.size)
+        cmds.grid(displayAxes=self.display_axes)
+        cmds.grid(displayGridLines=self.display_grid_lines)
+        cmds.grid(displayDivisionLines=self.display_division_lines)
+        cmds.grid(displayPerspectiveLabels=self.display_perspective_labels)
+        cmds.grid(displayOrthographicLabels=self.display_orthographic_labels)
+        cmds.grid(displayAxesBold=self.display_axes_bold)
+        cmds.grid(perspectiveLabelPosition=self.perspective_label_position)
+        cmds.grid(orthographicLabelPosition=self.orthographic_label_position)
+        cmds.displayColor("gridAxis", self.grid_axis_color)
+        cmds.displayColor("gridHighlight", self.grid_highlight_color)
+        cmds.displayColor("grid", self.grid_color)
 
 
-def set_default_options():
-    for option_var in default_option_vars:
-        if cmds.optionVar(exists=option_var.name):
-            if option_var.type == "fv":
-                cmds.optionVar(fv=(option_var.name, option_var.value))
+def get_current_option():
+    return GridSettings()
 
-            if option_var.type == "intValue":
-                cmds.optionVar(intValue=(option_var.name, option_var.value))
 
-            if option_var.type == "stringValue":
-                cmds.optionVar(stringValue=(option_var.name, option_var.value))
+def set_temporary_grid_settings():
+    current_settings = get_current_option()
+
+    # Temporary settings
+    cmds.grid(spacing=100)
+    cmds.grid(divisions=10)
+    cmds.grid(size=500)
+    cmds.grid(displayAxes=True)
+    cmds.grid(displayGridLines=True)
+    cmds.grid(displayDivisionLines=True)
+    cmds.grid(displayPerspectiveLabels=0)
+    cmds.grid(displayOrthographicLabels=0)
+    cmds.grid(displayAxesBold=True)
+    cmds.grid(perspectiveLabelPosition='axis')
+    cmds.grid(orthographicLabelPosition='edge')
+    cmds.displayColor("gridAxis", 2)  # default(gray)
+    cmds.displayColor("gridHighlight", 14)  # green
+    cmds.displayColor("grid", 2)  # default(gray
+
+    return current_settings
+
+
+def restore_grid_settings(settings):
+    settings.apply()
 
 
 def main():
-
-    #set_default_options()
-
-    set_custom_options()
-    mel.eval("gridCallback  1")
-    '''
-    saveShelf CurvesSurfaces "C:/Users/akane/Documents/maya/2019/prefs/shelves/shelf_CurvesSurfaces";
-    // Result: 1 // 
-    saveShelf XGen "C:/Users/akane/Documents/maya/2019/prefs/shelves/shelf_XGen";
-    // Result: 1 // 
-    saveShelf Omniverse "C:/Users/akane/Documents/maya/2019/prefs/shelves/shelf_Omniverse";
-    // Result: 1 // 
-    // Saving preferences to : C:/Users/akane/Documents/maya/2019/prefs/userPrefs.mel // 
-    // Undo: gridCallback OptionBoxWindow|formLayout109|tabLayout4|formLayout111|tabLayout5|columnLayout3 1 
-    '''
-    """
-    performTextureViewGridOptions.mel
-    """
+    current_settings = set_temporary_grid_settings()
+    restore_grid_settings(current_settings)
