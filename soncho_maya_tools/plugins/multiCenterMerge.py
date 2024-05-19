@@ -135,6 +135,7 @@ class multiCenterMerge(om2.MPxCommand):
                 edge_iter.next()
             return vert_id_groups
 
+        #TODO: python2系でのみiteratorのnext()が上手く動作しない
         def convert_faces_to_vert_groups(poly_iter):
             # type: (om2.MItMeshPolygon) -> "list[list[int]]"
             """
